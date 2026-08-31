@@ -546,13 +546,18 @@ export function useExtensionMessages(
         // (real) parentToolId. When it's missing — a teamed lead's background
         // spawn (the creation gate above suppressed the Subtask) or a reloaded
         // panel that lost it — create it lazily; addSubagent is idempotent.
+        // Lazily-created subs never got a "Subtask: <description>" label from
+        // the parent's own Task/Agent tool_use (the harness never sent it) —
+        // fall back to the first tool's own status line so the overlay shows
+        // something other than the generic "Subtask" placeholder.
+        const lazyLabel = status;
         let subId = os.getSubagentId(id, parentToolId);
         if (subId === null) {
           subId = os.addSubagent(id, parentToolId);
           const newSubId = subId;
           setSubagentCharacters((prev) => {
             if (prev.some((s) => s.id === newSubId)) return prev;
-            return [...prev, { id: newSubId, parentAgentId: id, parentToolId, label: '' }];
+            return [...prev, { id: newSubId, parentAgentId: id, parentToolId, label: lazyLabel }];
           });
           // Only watched background spawns are created lazily -- mark the
           // parent tool as background so agentToolsClear preserves the sub.
