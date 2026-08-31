@@ -18,6 +18,11 @@ export const WANDER_MOVES_BEFORE_REST_MAX = 6;
 export const SEAT_REST_MIN_SEC = 120.0;
 export const SEAT_REST_MAX_SEC = 240.0;
 
+// A sub-agent whose harness never sends a completion signal (e.g. no
+// `subagentClear` broadcast) would otherwise sit idle forever. Auto-despawn
+// it after this long with no activity.
+export const STALE_SUBAGENT_IDLE_TIMEOUT_SEC = 900.0;
+
 // ── Matrix Effect ────────────────────────────────────────────
 export const MATRIX_EFFECT_DURATION_SEC = 0.3;
 export const MATRIX_TRAIL_LENGTH = 6;

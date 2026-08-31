@@ -215,6 +215,10 @@ export interface Character {
   isSubagent: boolean;
   /** Parent agent ID if this is a sub-agent, null otherwise */
   parentAgentId: number | null;
+  /** Sub-agent only: seconds accumulated while idle (isActive === false).
+   *  Reset whenever the sub-agent becomes active again. Used to auto-despawn
+   *  sub-agents that never receive a completion signal from the harness. */
+  subagentIdleTimer?: number;
   /** Active matrix spawn/despawn effect, or null */
   matrixEffect: 'spawn' | 'despawn' | null;
   /** Timer counting up from 0 to MATRIX_EFFECT_DURATION */

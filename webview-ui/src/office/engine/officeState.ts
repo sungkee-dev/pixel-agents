@@ -14,6 +14,7 @@ import {
   MAX_PET_ID_LENGTH,
   PET_HIT_HALF_WIDTH,
   PET_HIT_HEIGHT,
+  STALE_SUBAGENT_IDLE_TIMEOUT_SEC,
   WAITING_BUBBLE_DURATION_SEC,
 } from '../../constants.js';
 import { getAnimationFrames, getCatalogEntry, getOnStateType } from '../layout/furnitureCatalog.js';
@@ -412,11 +413,10 @@ export class OfficeState {
    * repeat in balanced rounds with a random hue shift (≥45°).
    */
   private pickDiversePalette(): { palette: number; hueShift: number } {
-    // Count how many non-sub-agents use each base palette (0-5)
+    // Count how many characters (including sub-agents) use each base palette (0-5)
     const paletteCount = getLoadedCharacterCount();
     const counts = new Array(paletteCount).fill(0) as number[];
     for (const ch of this.characters.values()) {
-      if (ch.isSubagent) continue;
       if (ch.palette < paletteCount) counts[ch.palette]++;
     }
     return pickDiversePalette(paletteCount, counts);
@@ -686,15 +686,16 @@ export class OfficeState {
     return true;
   }
 
-  /** Create a sub-agent character with the parent's palette. Returns the sub-agent ID. */
+  /** Create a sub-agent character with its own diverse palette. Returns the sub-agent ID. */
   addSubagent(parentAgentId: number, parentToolId: string): number {
     const key = `${parentAgentId}:${parentToolId}`;
     if (this.subagentIdMap.has(key)) return this.subagentIdMap.get(key)!;
 
     const id = this.nextSubagentId--;
     const parentCh = this.characters.get(parentAgentId);
-    const palette = parentCh ? parentCh.palette : 0;
-    const hueShift = parentCh ? parentCh.hueShift : 0;
+    const pick = this.pickDiversePalette();
+    const palette = pick.palette;
+    const hueShift = pick.hueShift;
 
     // Find the closest walkable tile to the parent, avoiding tiles occupied by other characters
     const parentCol = parentCh ? parentCh.tileCol : 0;
@@ -792,6 +793,9 @@ export class OfficeState {
     const ch = this.characters.get(id);
     if (ch) {
       ch.isActive = active;
+      if (active) {
+        ch.subagentIdleTimer = 0;
+      }
       if (!active) {
         // Sentinel -1: signals turn just ended, skip next seat rest timer.
         // Prevents the WALK handler from setting a 2-4 min rest on arrival.
@@ -1120,6 +1124,16 @@ export class OfficeState {
         if (ch.bubbleTimer <= 0) {
           ch.bubbleType = null;
           ch.bubbleTimer = 0;
+        }
+      }
+
+      // Auto-despawn sub-agents stuck idle with no completion signal (see
+      // STALE_SUBAGENT_IDLE_TIMEOUT_SEC doc comment).
+      if (ch.isSubagent && !ch.isActive) {
+        ch.subagentIdleTimer = (ch.subagentIdleTimer ?? 0) + dt;
+        if (ch.subagentIdleTimer >= STALE_SUBAGENT_IDLE_TIMEOUT_SEC) {
+          const meta = this.subagentMeta.get(ch.id);
+          if (meta) this.removeSubagent(meta.parentAgentId, meta.parentToolId);
         }
       }
     }
